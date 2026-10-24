@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.fakecall'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.fakecall"
+        minSdk 21          // Android 5.0
+        targetSdk 22       // keeps CALL_PHONE as an install-time permission, like Android 5
+        versionCode 1
+        versionName "1.0"
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}
