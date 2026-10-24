@@ -41,7 +41,46 @@ On Android 5 you may need to allow "Unknown sources". The "real call screen" che
 
 ### Install as a system app (real call screen, needs root)
 
-Registering as a call provider needs `REGISTER_CALL_PROVIDER`, a permission only system apps can hold. With root you can install the APK as a privileged system app:
+Registering as a call provider needs `REGISTER_CALL_PROVIDER`, a permission only system apps can hold. With root you can install the APK as a privileged system app.
+
+#### Easy way: `install_fakecall.sh`
+
+1. Download `FakeCall.apk` from the [Releases](../../releases) page **on the phone** (browser) so it lands in the phone's `Download` folder as `FakeCall.apk`. Or put it on your PC next to the script and push it in step 2.
+2. Push the script (and the APK, if you have it on the PC) to the phone and run it as root:
+
+```bash
+adb push install_fakecall.sh /data/local/tmp/
+adb push FakeCall.apk /data/local/tmp/        # skip if the APK is already on the phone
+adb shell su -c "sh /data/local/tmp/install_fakecall.sh"
+```
+
+The script finds the APK, removes any normal install of the app, remounts `/system` read-write, copies the APK to `/system/priv-app/FakeCall/` with the right permissions, puts `/system` back to read-only and reboots after 5 seconds. If anything fails it prints an `ERROR:` line and leaves `/system` read-only.
+
+It looks for `FakeCall.apk` in this order: next to the script, `/data/local/tmp`, `/sdcard`, `/sdcard/Download`. If none is found it tries to download it from this repo's release, but only with `curl` or a `wget` that verifies TLS certificates (BusyBox `wget`, which is what Android 5 ships, cannot, so it is never used for https). On a stock Android 5 phone that means the download will not work: get the APK with the browser as in step 1.
+
+Options go after the script name, inside the quotes when using `su -c "..."`:
+
+| Option | What it does |
+| --- | --- |
+| `noreboot` | install but do not reboot |
+| `uninstall` | remove the system app and reboot |
+| `download` | ignore local copies and download the APK |
+| `https://...apk` | download from this URL instead of the default release |
+| `/path/to/file.apk` | install this APK file |
+
+Examples:
+
+```bash
+adb shell su -c "sh /data/local/tmp/install_fakecall.sh noreboot"
+adb shell su -c "sh /data/local/tmp/install_fakecall.sh uninstall"
+adb shell su -c "sh /data/local/tmp/install_fakecall.sh /sdcard/MyBuild.apk"
+```
+
+If `su -c` does not work with your root manager, run `adb shell`, then `su`, then `sh /data/local/tmp/install_fakecall.sh`.
+
+#### Manual way
+
+The same thing by hand:
 
 ```bash
 adb uninstall com.example.fakecall        # remove any normal install first
