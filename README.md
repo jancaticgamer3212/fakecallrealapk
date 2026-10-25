@@ -112,7 +112,7 @@ To remove it: `rm -r /system/priv-app/FakeCall` from a root shell, then reboot. 
 
 ## Using the photo, audio and messages
 
-- **Photo / answer audio**: tap **Choose** next to them on the main screen and pick a file from any file manager or gallery app. The file is copied into the app, so you can delete the original. **Clear** removes it.
+- **Photo / answer audio**: tap **Choose** next to them on the main screen and pick a file from any file manager or gallery app. The file is copied into the app, so you can delete the original. **Clear** removes it. If the phone refuses the normal read (storage permission denied), the app falls back to copying the file as root with `su`, so your root manager may show a permission prompt for FakeCall: allow it. If something still fails, the exact error is shown in a message on screen.
 - **Real call screen mode**: the phone's own call screen cannot show the app's photo, so the photo is ignored there. The answer audio still plays after you accept.
 - **Fake message**: fill in the text, pick a time, tap **Send / schedule fake message**. "Immediately" posts it right away.
 

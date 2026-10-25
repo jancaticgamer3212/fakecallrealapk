@@ -143,8 +143,7 @@ public class MainActivity extends Activity {
             final String err = isImage ? Media.saveImage(this, uri) : Media.saveAudio(this, uri);
             runOnUiThread(() -> {
                 if (err != null) {
-                    Toast.makeText(this, "Couldn't use that file: " + err, Toast.LENGTH_LONG).show();
-                } else {
+                    Toast.makeText(this, "Couldn't use that file: " + err, Toast.LENGTH_LONG).show();                } else {
                     prefs.edit().putString(isImage ? Media.K_IMG_NAME : Media.K_AUDIO_NAME, name).apply();
                 }
                 refreshMedia();

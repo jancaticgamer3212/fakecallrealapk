@@ -1,5 +1,6 @@
 package com.example.fakecall;
 
+import android.content.ContentUris;
 import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -13,6 +14,8 @@ import android.graphics.Shader;
 import android.graphics.drawable.GradientDrawable;
 import android.media.ExifInterface;
 import android.net.Uri;
+import android.provider.DocumentsContract;
+import android.provider.MediaStore;
 import android.provider.OpenableColumns;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -88,27 +91,121 @@ final class Media {
         return t.getClass().getSimpleName() + (m == null ? "" : ": " + m);
     }
 
-    /** Copies the picked audio into app storage. Returns null on success, else the reason. */
-    static String saveAudio(Context c, Uri uri) {
-        File out = audioFile(c);
+    /** Works out the real file path behind a picked document, or null if it cannot be found. */
+    static String resolvePath(Context c, Uri uri) {
+        if ("file".equals(uri.getScheme())) return uri.getPath();
+        try {
+            if (DocumentsContract.isDocumentUri(c, uri)) {
+                String auth = uri.getAuthority();
+                String id = DocumentsContract.getDocumentId(uri);
+                String[] p = id.split(":", 2);
+                if ("com.android.externalstorage.documents".equals(auth) && p.length == 2) {
+                    return "primary".equalsIgnoreCase(p[0])
+                            ? "/sdcard/" + p[1] : "/storage/" + p[0] + "/" + p[1];
+                }
+                if ("com.android.providers.media.documents".equals(auth) && p.length == 2) {
+                    Uri base = null;
+                    if ("audio".equals(p[0])) base = MediaStore.Audio.Media.EXTERNAL_CONTENT_URI;
+                    else if ("image".equals(p[0])) base = MediaStore.Images.Media.EXTERNAL_CONTENT_URI;
+                    if (base != null) return dataColumn(c, base, "_id=?", new String[]{p[1]});
+                }
+                if ("com.android.providers.downloads.documents".equals(auth)) {
+                    Uri dl = ContentUris.withAppendedId(
+                            Uri.parse("content://downloads/public_downloads"), Long.parseLong(id));
+                    return dataColumn(c, dl, null, null);
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        return dataColumn(c, uri, null, null);
+    }
+
+    private static String dataColumn(Context c, Uri uri, String selection, String[] args) {
+        Cursor cur = null;
+        try {
+            cur = c.getContentResolver().query(uri, new String[]{"_data"}, selection, args, null);
+            if (cur != null && cur.moveToFirst()) return cur.getString(0);
+        } catch (Exception ignored) {
+        } finally {
+            if (cur != null) cur.close();
+        }
+        return null;
+    }
+
+    /**
+     * Reads a file as root (su) and writes the bytes into dest. The app itself creates dest, so it
+     * stays readable by the app. May show the root manager's permission prompt.
+     */
+    private static boolean copyViaRoot(String path, File dest) {
+        try {
+            final Process proc = Runtime.getRuntime().exec(
+                    new String[]{"su", "-c", "cat '" + path.replace("'", "'\\''") + "'"});
+            Thread watchdog = new Thread(() -> {
+                try {
+                    Thread.sleep(30000);
+                    proc.destroy();
+                } catch (InterruptedException ignored) {
+                }
+            });
+            watchdog.setDaemon(true);
+            watchdog.start();
+
+            long total = 0;
+            InputStream in = proc.getInputStream();
+            OutputStream os = new FileOutputStream(dest);
+            try {
+                byte[] buf = new byte[16384];
+                int n;
+                while ((n = in.read(buf)) > 0) {
+                    os.write(buf, 0, n);
+                    total += n;
+                }
+            } finally {
+                os.close();
+                in.close();
+            }
+            watchdog.interrupt();
+            int code = proc.waitFor();
+            proc.destroy();
+            return total > 0 && code == 0;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    /**
+     * Copies a picked document into dest: through the normal content resolver first, and as
+     * root if that is denied. Returns null on success, else the reason.
+     */
+    private static String fetch(Context c, Uri uri, File dest) {
+        String err;
         try {
             InputStream in = c.getContentResolver().openInputStream(uri);
-            if (in == null) return "cannot open the file";
-            copy(in, out);
+            if (in == null) throw new IOException("cannot open the file");
+            copy(in, dest);
             return null;
         } catch (Exception e) {
-            out.delete();
-            return describe(e);
+            err = describe(e);
         }
+        String path = resolvePath(c, uri);
+        if (path != null && copyViaRoot(path, dest)) return null;
+        dest.delete();
+        return err + (path == null
+                ? " (and the file's path could not be found for a root copy)"
+                : " (a root copy of " + path + " failed too)");
+    }
+
+    /** Copies the picked audio into app storage. Returns null on success, else the reason. */
+    static String saveAudio(Context c, Uri uri) {
+        return fetch(c, uri, audioFile(c));
     }
 
     /** Shrinks and rotates the picked photo and stores it as a JPEG. Returns null on success. */
     static String saveImage(Context c, Uri uri) {
         File tmp = new File(c.getCacheDir(), "pick.tmp");
         try {
-            InputStream in = c.getContentResolver().openInputStream(uri);
-            if (in == null) return "cannot open the file";
-            copy(in, tmp);
+            String fetchErr = fetch(c, uri, tmp);
+            if (fetchErr != null) return fetchErr;
 
             BitmapFactory.Options bounds = new BitmapFactory.Options();
             bounds.inJustDecodeBounds = true;

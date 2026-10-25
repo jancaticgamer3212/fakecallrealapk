@@ -13,6 +13,7 @@ import android.telecom.ConnectionService;
 import android.telecom.DisconnectCause;
 import android.telecom.PhoneAccountHandle;
 import android.telecom.TelecomManager;
+import android.widget.Toast;
 
 import java.io.File;
 
@@ -59,6 +60,10 @@ public class FakeConnectionService extends ConnectionService {
                     voice.start();
                 } catch (Exception e) {
                     stopVoice();
+                    String m = e.getMessage();
+                    Toast.makeText(ctx, "Couldn't play the answer audio: "
+                            + e.getClass().getSimpleName() + (m == null ? "" : ": " + m),
+                            Toast.LENGTH_LONG).show();
                 }
             }
         };

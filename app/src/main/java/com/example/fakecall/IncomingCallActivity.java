@@ -18,6 +18,7 @@ import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import java.util.Locale;
 
@@ -162,21 +163,30 @@ public class IncomingCallActivity extends Activity {
 
     /** Plays the answer audio the way a call is heard: voice-call stream, earpiece. */
     private void startVoice() {
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        int stream = AudioManager.STREAM_MUSIC;
         try {
-            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
             savedMode = am.getMode();
             savedSpeaker = am.isSpeakerphoneOn();
             audioChanged = true;
             am.setMode(AudioManager.MODE_IN_CALL);
             am.setSpeakerphoneOn(false);
+            stream = AudioManager.STREAM_VOICE_CALL;
+        } catch (Exception ignored) {
+            // not allowed to switch to call mode: still play the audio on the normal stream
+        }
 
+        try {
             voicePlayer = new MediaPlayer();
             voicePlayer.setDataSource(Media.audioFile(this).getPath());
-            voicePlayer.setAudioStreamType(AudioManager.STREAM_VOICE_CALL);
+            voicePlayer.setAudioStreamType(stream);
             voicePlayer.prepare();
             voicePlayer.start();
         } catch (Exception e) {
             releaseVoice();
+            String m = e.getMessage();
+            Toast.makeText(this, "Couldn't play the answer audio: " + e.getClass().getSimpleName()
+                    + (m == null ? "" : ": " + m), Toast.LENGTH_LONG).show();
         }
     }
 
