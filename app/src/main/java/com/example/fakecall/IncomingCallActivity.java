@@ -2,6 +2,7 @@ package com.example.fakecall;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.SharedPreferences;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
@@ -202,16 +203,20 @@ public class IncomingCallActivity extends Activity {
         int mode = am.getRingerMode();
 
         if (mode == AudioManager.RINGER_MODE_NORMAL) {
-            try {
-                Uri uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE);
-                player = new MediaPlayer();
-                player.setDataSource(this, uri);
-                player.setAudioStreamType(AudioManager.STREAM_RING);
-                player.setLooping(true);
-                player.prepare();
-                player.start();
-            } catch (Exception e) {
-                releasePlayer();
+            SharedPreferences p = getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE);
+            String kind = p.getString(Media.K_RING_KIND, "default");
+            if (!"silent".equals(kind)) {
+                Uri chosen = null;
+                if ("file".equals(kind) && Media.ringtoneFile(this).exists()) {
+                    chosen = Uri.fromFile(Media.ringtoneFile(this));
+                } else if ("system".equals(kind)) {
+                    String s = p.getString(Media.K_RING_URI, null);
+                    if (s != null) chosen = Uri.parse(s);
+                }
+                // anything that cannot be played falls back to the phone's default ringtone
+                if (!playRingtone(chosen)) {
+                    playRingtone(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE));
+                }
             }
         }
         if (mode != AudioManager.RINGER_MODE_SILENT) {
@@ -219,6 +224,22 @@ public class IncomingCallActivity extends Activity {
             if (vibrator != null && vibrator.hasVibrator()) {
                 vibrator.vibrate(new long[]{0, 1000, 1000}, 0);
             }
+        }
+    }
+
+    private boolean playRingtone(Uri uri) {
+        if (uri == null) return false;
+        try {
+            player = new MediaPlayer();
+            player.setDataSource(this, uri);
+            player.setAudioStreamType(AudioManager.STREAM_RING);
+            player.setLooping(true);
+            player.prepare();
+            player.start();
+            return true;
+        } catch (Exception e) {
+            releasePlayer();
+            return false;
         }
     }
 

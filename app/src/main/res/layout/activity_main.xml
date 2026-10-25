@@ -91,12 +91,39 @@
                 android:text="Clear" />
         </LinearLayout>
 
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/ringLabel"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/ringChooseButton"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Choose" />
+
+            <Button
+                android:id="@+id/ringClearButton"
+                style="?android:attr/buttonStyleSmall"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Clear" />
+        </LinearLayout>
+
         <CheckBox
             android:id="@+id/realModeCheck"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
             android:layout_marginTop="8dp"
-            android:text="Use the phone's real call screen (needs system-app install, experimental; ignores the photo)" />
+            android:text="Use the phone's real call screen (needs system-app install, experimental; ignores the photo and ringtone)" />
 
         <LinearLayout
             android:id="@+id/callWhenContainer"

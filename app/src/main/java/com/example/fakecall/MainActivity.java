@@ -2,11 +2,14 @@ package com.example.fakecall;
 
 import android.app.Activity;
 import android.app.AlarmManager;
+import android.app.AlertDialog;
 import android.app.PendingIntent;
 import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.media.Ringtone;
+import android.media.RingtoneManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -46,9 +49,11 @@ public class MainActivity extends Activity {
 
     private static final int REQ_IMAGE = 1;
     private static final int REQ_AUDIO = 2;
+    private static final int REQ_RING_FILE = 3;
+    private static final int REQ_RING_SYSTEM = 4;
 
     private EditText nameEdit, numberEdit, msgSenderEdit, msgTextEdit;
-    private TextView imageLabel, audioLabel, statusText, msgStatusText;
+    private TextView imageLabel, audioLabel, ringLabel, statusText, msgStatusText;
     private WhenPicker callWhen, msgWhen;
     private SharedPreferences prefs;
 
@@ -64,6 +69,7 @@ public class MainActivity extends Activity {
         msgTextEdit = (EditText) findViewById(R.id.msgTextEdit);
         imageLabel = (TextView) findViewById(R.id.imageLabel);
         audioLabel = (TextView) findViewById(R.id.audioLabel);
+        ringLabel = (TextView) findViewById(R.id.ringLabel);
         statusText = (TextView) findViewById(R.id.statusText);
         msgStatusText = (TextView) findViewById(R.id.msgStatusText);
         CheckBox realModeCheck = (CheckBox) findViewById(R.id.realModeCheck);
@@ -102,6 +108,8 @@ public class MainActivity extends Activity {
             Media.clearAudio(this);
             refreshMedia();
         });
+        findViewById(R.id.ringChooseButton).setOnClickListener(v -> chooseRingtone());
+        findViewById(R.id.ringClearButton).setOnClickListener(v -> setRingtone("default", null, null));
 
         findViewById(R.id.scheduleButton).setOnClickListener(v -> onScheduleCall());
         findViewById(R.id.cancelButton).setOnClickListener(v -> onCancelCall());
@@ -133,22 +141,95 @@ public class MainActivity extends Activity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
-        if (requestCode != REQ_IMAGE && requestCode != REQ_AUDIO) return;
+        if (resultCode != RESULT_OK || data == null) return;
+
+        if (requestCode == REQ_RING_SYSTEM) {
+            // the system picker returns the choice as an extra; "Silent" comes back as null
+            onSystemRingtonePicked((Uri) data.getParcelableExtra(
+                    RingtoneManager.EXTRA_RINGTONE_PICKED_URI));
+            return;
+        }
+        if (data.getData() == null) return;
+        if (requestCode != REQ_IMAGE && requestCode != REQ_AUDIO && requestCode != REQ_RING_FILE) {
+            return;
+        }
 
         final Uri uri = data.getData();
-        final boolean isImage = requestCode == REQ_IMAGE;
+        final int req = requestCode;
         new Thread(() -> {
             final String name = Media.displayName(this, uri);
-            final String err = isImage ? Media.saveImage(this, uri) : Media.saveAudio(this, uri);
+            final String err = req == REQ_IMAGE ? Media.saveImage(this, uri)
+                    : req == REQ_AUDIO ? Media.saveAudio(this, uri)
+                    : Media.saveRingtone(this, uri);
             runOnUiThread(() -> {
                 if (err != null) {
-                    Toast.makeText(this, "Couldn't use that file: " + err, Toast.LENGTH_LONG).show();                } else {
-                    prefs.edit().putString(isImage ? Media.K_IMG_NAME : Media.K_AUDIO_NAME, name).apply();
+                    Toast.makeText(this, "Couldn't use that file: " + err, Toast.LENGTH_LONG).show();
+                } else if (req == REQ_IMAGE) {
+                    prefs.edit().putString(Media.K_IMG_NAME, name).apply();
+                } else if (req == REQ_AUDIO) {
+                    prefs.edit().putString(Media.K_AUDIO_NAME, name).apply();
+                } else {
+                    setRingtone("file", null, name);
                 }
                 refreshMedia();
             });
         }).start();
+    }
+
+    private void chooseRingtone() {
+        new AlertDialog.Builder(this)
+                .setTitle("Ringtone")
+                .setItems(new CharSequence[]{"Phone ringtones", "Audio file from storage"},
+                        (dialog, which) -> {
+                            if (which == 0) pickSystemRingtone();
+                            else pick("audio/*", REQ_RING_FILE);
+                        })
+                .show();
+    }
+
+    private void pickSystemRingtone() {
+        Intent i = new Intent(RingtoneManager.ACTION_RINGTONE_PICKER);
+        i.putExtra(RingtoneManager.EXTRA_RINGTONE_TYPE, RingtoneManager.TYPE_RINGTONE);
+        i.putExtra(RingtoneManager.EXTRA_RINGTONE_TITLE, "Fake call ringtone");
+        i.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_DEFAULT, true);
+        i.putExtra(RingtoneManager.EXTRA_RINGTONE_SHOW_SILENT, true);
+        String current = prefs.getString(Media.K_RING_URI, null);
+        if ("system".equals(prefs.getString(Media.K_RING_KIND, "default")) && current != null) {
+            i.putExtra(RingtoneManager.EXTRA_RINGTONE_EXISTING_URI, Uri.parse(current));
+        }
+        try {
+            startActivityForResult(i, REQ_RING_SYSTEM);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "This phone has no ringtone picker - use an audio file instead",
+                    Toast.LENGTH_LONG).show();
+        }
+    }
+
+    private void onSystemRingtonePicked(Uri picked) {
+        if (picked == null) {
+            setRingtone("silent", null, "Silent");
+            return;
+        }
+        if (picked.equals(RingtoneManager.getDefaultUri(RingtoneManager.TYPE_RINGTONE))) {
+            setRingtone("default", null, null);
+            return;
+        }
+        String title = null;
+        try {
+            Ringtone r = RingtoneManager.getRingtone(this, picked);
+            if (r != null) title = r.getTitle(this);
+        } catch (Exception ignored) {
+        }
+        setRingtone("system", picked.toString(), title == null ? "phone ringtone" : title);
+    }
+
+    /** kind: "default", "silent", "system" (uri given) or "file" (the copied ringtone_audio file). */
+    private void setRingtone(String kind, String uri, String name) {
+        if (!"file".equals(kind)) Media.ringtoneFile(this).delete();
+        prefs.edit().putString(Media.K_RING_KIND, kind)
+                .putString(Media.K_RING_URI, uri)
+                .putString(Media.K_RING_NAME, name).apply();
+        refreshMedia();
     }
 
     private void refreshMedia() {
@@ -156,6 +237,19 @@ public class MainActivity extends Activity {
                 ? "Photo: " + prefs.getString(Media.K_IMG_NAME, "set") : "Photo: none");
         audioLabel.setText(Media.audioFile(this).exists()
                 ? "Answer audio: " + prefs.getString(Media.K_AUDIO_NAME, "set") : "Answer audio: none");
+
+        String kind = prefs.getString(Media.K_RING_KIND, "default");
+        String ring;
+        if ("silent".equals(kind)) {
+            ring = "silent";
+        } else if ("file".equals(kind) && Media.ringtoneFile(this).exists()) {
+            ring = prefs.getString(Media.K_RING_NAME, "audio file");
+        } else if ("system".equals(kind)) {
+            ring = prefs.getString(Media.K_RING_NAME, "phone ringtone");
+        } else {
+            ring = "phone default";
+        }
+        ringLabel.setText("Ringtone: " + ring);
     }
 
     // ------------------------------------------------------------------ alarms

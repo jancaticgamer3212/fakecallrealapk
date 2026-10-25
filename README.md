@@ -12,6 +12,7 @@ Built for Android 5.x (minSdk 21). Tested on a Samsung Galaxy A3 (SM-A310F) runn
 - Cancel a scheduled call from the app.
 - **Caller photo**: pick a picture and it is shown on the call screen (and as the sender's picture on fake messages). It is shrunk and rotated correctly when picked.
 - **Answer audio**: pick an audio file and it plays through the earpiece when you accept the call, so the "caller" says something. A **Speaker** button on the call screen plays it out loud.
+- **Ringtone**: choose what rings before you answer: one of the phone's own ringtones (or silent), or an audio file from storage. **Clear** goes back to the phone's default ringtone. It respects the phone's ringer mode (vibrate and silent modes do not play it).
 - **Fake messages**: enter a sender (defaults to the caller name) and a text, then choose when it arrives with the same menu as calls (presets, custom delay, custom clock time). It appears as a normal heads-up notification with sound and vibration and wakes the screen. Tapping it opens a small chat screen where you can type replies; replies only stay on that screen, nothing is sent.
 - Two display modes:
   - **Simulated screen** (default, works as a normal install): the app draws its own incoming-call screen with Accept / Decline and an in-call timer.
@@ -113,7 +114,7 @@ To remove it: `rm -r /system/priv-app/FakeCall` from a root shell, then reboot. 
 ## Using the photo, audio and messages
 
 - **Photo / answer audio**: tap **Choose** next to them on the main screen and pick a file from any file manager or gallery app. The file is copied into the app, so you can delete the original. **Clear** removes it. If the phone refuses the normal read (storage permission denied), the app falls back to copying the file as root with `su`, so your root manager may show a permission prompt for FakeCall: allow it. If something still fails, the exact error is shown in a message on screen.
-- **Real call screen mode**: the phone's own call screen cannot show the app's photo, so the photo is ignored there. The answer audio still plays after you accept.
+- **Real call screen mode**: the phone's own call screen cannot show the app's photo, so the photo is ignored there, and the ringtone is whatever the phone uses for calls. The answer audio still plays after you accept.
 - **Fake message**: fill in the text, pick a time, tap **Send / schedule fake message**. "Immediately" posts it right away.
 
 ## Updating an existing system-app install

@@ -35,6 +35,11 @@ final class Media {
     static final String K_IMG_NAME = "img_name";
     static final String K_AUDIO_NAME = "audio_name";
 
+    // ringtone: kind is "default", "silent", "system" (a phone ringtone, see K_RING_URI) or "file"
+    static final String K_RING_KIND = "ring_kind";
+    static final String K_RING_URI = "ring_uri";
+    static final String K_RING_NAME = "ring_name";
+
     private static final int MAX_IMAGE_PX = 1024;
 
     private Media() {
@@ -46,6 +51,10 @@ final class Media {
 
     static File audioFile(Context c) {
         return new File(c.getFilesDir(), "answer_audio");
+    }
+
+    static File ringtoneFile(Context c) {
+        return new File(c.getFilesDir(), "ringtone_audio");
     }
 
     static void clearImage(Context c) {
@@ -198,6 +207,11 @@ final class Media {
     /** Copies the picked audio into app storage. Returns null on success, else the reason. */
     static String saveAudio(Context c, Uri uri) {
         return fetch(c, uri, audioFile(c));
+    }
+
+    /** Copies a picked audio file to use as the ringtone. Returns null on success, else the reason. */
+    static String saveRingtone(Context c, Uri uri) {
+        return fetch(c, uri, ringtoneFile(c));
     }
 
     /** Shrinks and rotates the picked photo and stores it as a JPEG. Returns null on success. */
