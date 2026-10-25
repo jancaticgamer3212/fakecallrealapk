@@ -11,17 +11,7 @@ public class CallReceiver extends BroadcastReceiver {
 
     @Override
     public void onReceive(Context context, Intent intent) {
-        // Wake the screen so the call shows up on a sleeping phone.
-        try {
-            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-            PowerManager.WakeLock wl = pm.newWakeLock(
-                    PowerManager.FULL_WAKE_LOCK
-                            | PowerManager.ACQUIRE_CAUSES_WAKEUP
-                            | PowerManager.ON_AFTER_RELEASE,
-                    "fakecall:call");
-            wl.acquire(10000);
-        } catch (Exception ignored) {
-        }
+        wakeScreen(context);
 
         context.getSharedPreferences(MainActivity.PREFS, Context.MODE_PRIVATE)
                 .edit().putLong(MainActivity.K_WHEN, 0).apply();
@@ -29,6 +19,20 @@ public class CallReceiver extends BroadcastReceiver {
         trigger(context,
                 intent.getStringExtra(MainActivity.EXTRA_NAME),
                 intent.getStringExtra(MainActivity.EXTRA_NUMBER));
+    }
+
+    /** Turns the screen on for a few seconds so a call or message shows up on a sleeping phone. */
+    static void wakeScreen(Context context) {
+        try {
+            PowerManager pm = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
+            PowerManager.WakeLock wl = pm.newWakeLock(
+                    PowerManager.FULL_WAKE_LOCK
+                            | PowerManager.ACQUIRE_CAUSES_WAKEUP
+                            | PowerManager.ON_AFTER_RELEASE,
+                    "fakecall:wake");
+            wl.acquire(10000);
+        } catch (Exception ignored) {
+        }
     }
 
     /** Uses the phone's real call screen if enabled and working, else the simulated one. */

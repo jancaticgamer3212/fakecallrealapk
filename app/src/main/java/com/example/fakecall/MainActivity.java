@@ -3,55 +3,54 @@ package com.example.fakecall;
 import android.app.Activity;
 import android.app.AlarmManager;
 import android.app.PendingIntent;
-import android.app.TimePickerDialog;
+import android.content.ActivityNotFoundException;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
-import android.text.format.DateFormat;
-import android.view.View;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Button;
+import android.view.ViewGroup;
 import android.widget.CheckBox;
 import android.widget.EditText;
-import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
 
 import java.text.SimpleDateFormat;
-import java.util.Calendar;
 import java.util.Date;
 import java.util.Locale;
 
 public class MainActivity extends Activity {
 
     static final String PREFS = "fakecall";
+
+    // fake call
     static final String K_NAME = "name";
     static final String K_NUMBER = "number";
     static final String K_WHEN = "when";
     static final String K_SCHED_NAME = "sched_name";
     static final String K_SCHED_NUMBER = "sched_number";
     static final String K_REAL = "real_mode";
+
+    // fake message
+    static final String K_MSG_SENDER = "msg_sender";
+    static final String K_MSG_TEXT = "msg_text";
+    static final String K_MSG_WHEN = "msg_when";
+    static final String K_MSG_SCHED_SENDER = "msg_sched_sender";
+    static final String K_MSG_SCHED_TEXT = "msg_sched_text";
+
     static final String EXTRA_NUMBER = "number";
     static final String EXTRA_NAME = "name";
+    static final String EXTRA_TEXT = "text";
+    static final String EXTRA_TIME = "time";
 
-    // Spinner positions: 0-7 are presets, then the two custom options.
-    private static final long[] PRESET_SECONDS = {0, 10, 30, 60, 300, 900, 1800, 3600};
-    private static final int POS_CUSTOM_DELAY = 8;
-    private static final int POS_CUSTOM_CLOCK = 9;
+    private static final int REQ_IMAGE = 1;
+    private static final int REQ_AUDIO = 2;
 
-    private EditText nameEdit, numberEdit, hoursEdit, minutesEdit, secondsEdit;
-    private Spinner whenSpinner;
-    private View customDelayRow;
-    private Button pickTimeButton;
-    private CheckBox realModeCheck;
-    private TextView statusText;
+    private EditText nameEdit, numberEdit, msgSenderEdit, msgTextEdit;
+    private TextView imageLabel, audioLabel, statusText, msgStatusText;
+    private WhenPicker callWhen, msgWhen;
     private SharedPreferences prefs;
-
-    private int clockHour = -1;
-    private int clockMinute = -1;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,14 +60,23 @@ public class MainActivity extends Activity {
 
         nameEdit = (EditText) findViewById(R.id.nameEdit);
         numberEdit = (EditText) findViewById(R.id.numberEdit);
-        hoursEdit = (EditText) findViewById(R.id.hoursEdit);
-        minutesEdit = (EditText) findViewById(R.id.minutesEdit);
-        secondsEdit = (EditText) findViewById(R.id.secondsEdit);
-        whenSpinner = (Spinner) findViewById(R.id.whenSpinner);
-        customDelayRow = findViewById(R.id.customDelayRow);
-        pickTimeButton = (Button) findViewById(R.id.pickTimeButton);
+        msgSenderEdit = (EditText) findViewById(R.id.msgSenderEdit);
+        msgTextEdit = (EditText) findViewById(R.id.msgTextEdit);
+        imageLabel = (TextView) findViewById(R.id.imageLabel);
+        audioLabel = (TextView) findViewById(R.id.audioLabel);
         statusText = (TextView) findViewById(R.id.statusText);
-        realModeCheck = (CheckBox) findViewById(R.id.realModeCheck);
+        msgStatusText = (TextView) findViewById(R.id.msgStatusText);
+        CheckBox realModeCheck = (CheckBox) findViewById(R.id.realModeCheck);
+
+        callWhen = new WhenPicker(this, (ViewGroup) findViewById(R.id.callWhenContainer),
+                "When should the call come in?");
+        msgWhen = new WhenPicker(this, (ViewGroup) findViewById(R.id.msgWhenContainer),
+                "When should the message arrive?");
+
+        nameEdit.setText(prefs.getString(K_NAME, ""));
+        numberEdit.setText(prefs.getString(K_NUMBER, ""));
+        msgSenderEdit.setText(prefs.getString(K_MSG_SENDER, ""));
+        msgTextEdit.setText(prefs.getString(K_MSG_TEXT, ""));
 
         realModeCheck.setChecked(prefs.getBoolean(K_REAL, false));
         realModeCheck.setOnCheckedChangeListener((button, checked) -> {
@@ -84,88 +92,76 @@ public class MainActivity extends Activity {
             prefs.edit().putBoolean(K_REAL, checked).apply();
         });
 
-        nameEdit.setText(prefs.getString(K_NAME, ""));
-        numberEdit.setText(prefs.getString(K_NUMBER, ""));
-
-        ArrayAdapter<CharSequence> adapter = ArrayAdapter.createFromResource(
-                this, R.array.when_options, android.R.layout.simple_spinner_item);
-        adapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        whenSpinner.setAdapter(adapter);
-        whenSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
-            @Override
-            public void onItemSelected(AdapterView<?> parent, View view, int pos, long id) {
-                customDelayRow.setVisibility(pos == POS_CUSTOM_DELAY ? View.VISIBLE : View.GONE);
-                pickTimeButton.setVisibility(pos == POS_CUSTOM_CLOCK ? View.VISIBLE : View.GONE);
-                if (pos == POS_CUSTOM_CLOCK && clockHour < 0) showTimePicker();
-            }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
-            }
+        findViewById(R.id.imageChooseButton).setOnClickListener(v -> pick("image/*", REQ_IMAGE));
+        findViewById(R.id.audioChooseButton).setOnClickListener(v -> pick("audio/*", REQ_AUDIO));
+        findViewById(R.id.imageClearButton).setOnClickListener(v -> {
+            Media.clearImage(this);
+            refreshMedia();
+        });
+        findViewById(R.id.audioClearButton).setOnClickListener(v -> {
+            Media.clearAudio(this);
+            refreshMedia();
         });
 
-        pickTimeButton.setOnClickListener(v -> showTimePicker());
-        findViewById(R.id.scheduleButton).setOnClickListener(v -> onSchedule());
-        findViewById(R.id.cancelButton).setOnClickListener(v -> onCancel());
+        findViewById(R.id.scheduleButton).setOnClickListener(v -> onScheduleCall());
+        findViewById(R.id.cancelButton).setOnClickListener(v -> onCancelCall());
+        findViewById(R.id.msgScheduleButton).setOnClickListener(v -> onScheduleMessage());
+        findViewById(R.id.msgCancelButton).setOnClickListener(v -> onCancelMessage());
     }
 
     @Override
     protected void onResume() {
         super.onResume();
+        refreshMedia();
         refreshStatus();
     }
 
-    private void showTimePicker() {
-        Calendar now = Calendar.getInstance();
-        int h = clockHour >= 0 ? clockHour : now.get(Calendar.HOUR_OF_DAY);
-        int m = clockHour >= 0 ? clockMinute : now.get(Calendar.MINUTE);
-        new TimePickerDialog(this, (view, hourOfDay, minute) -> {
-            clockHour = hourOfDay;
-            clockMinute = minute;
-            pickTimeButton.setText(String.format(Locale.getDefault(),
-                    "Call at %02d:%02d (tap to change)", hourOfDay, minute));
-        }, h, m, DateFormat.is24HourFormat(this)).show();
-    }
+    // ------------------------------------------------------------------ photo / audio
 
-    private long parseNumber(EditText e) {
+    private void pick(String mimeType, int requestCode) {
+        Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+        i.setType(mimeType);
+        i.addCategory(Intent.CATEGORY_OPENABLE);
         try {
-            return Long.parseLong(e.getText().toString().trim());
-        } catch (NumberFormatException ex) {
-            return 0;
+            startActivityForResult(Intent.createChooser(i, "Choose a file"), requestCode);
+        } catch (ActivityNotFoundException e) {
+            Toast.makeText(this, "No app on this phone can pick that kind of file",
+                    Toast.LENGTH_LONG).show();
         }
     }
 
-    /** Returns the time the fake call should ring (ms since epoch), or -1 if the input is invalid. */
-    private long computeTriggerTime() {
-        int pos = whenSpinner.getSelectedItemPosition();
-        long now = System.currentTimeMillis();
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode != REQ_IMAGE && requestCode != REQ_AUDIO) return;
 
-        if (pos < PRESET_SECONDS.length) {
-            return now + PRESET_SECONDS[pos] * 1000L;
-        }
-        if (pos == POS_CUSTOM_DELAY) {
-            long secs = parseNumber(hoursEdit) * 3600 + parseNumber(minutesEdit) * 60
-                    + parseNumber(secondsEdit);
-            if (secs <= 0) {
-                Toast.makeText(this, "Enter a delay greater than zero", Toast.LENGTH_SHORT).show();
-                return -1;
-            }
-            return now + secs * 1000L;
-        }
-        if (clockHour < 0) {
-            Toast.makeText(this, "Pick a time first", Toast.LENGTH_SHORT).show();
-            return -1;
-        }
-        Calendar c = Calendar.getInstance();
-        c.set(Calendar.HOUR_OF_DAY, clockHour);
-        c.set(Calendar.MINUTE, clockMinute);
-        c.set(Calendar.SECOND, 0);
-        c.set(Calendar.MILLISECOND, 0);
-        if (c.getTimeInMillis() <= now) c.add(Calendar.DAY_OF_YEAR, 1); // already passed -> tomorrow
-        return c.getTimeInMillis();
+        final Uri uri = data.getData();
+        final boolean isImage = requestCode == REQ_IMAGE;
+        new Thread(() -> {
+            final String name = Media.displayName(this, uri);
+            final String err = isImage ? Media.saveImage(this, uri) : Media.saveAudio(this, uri);
+            runOnUiThread(() -> {
+                if (err != null) {
+                    Toast.makeText(this, "Couldn't use that file: " + err, Toast.LENGTH_LONG).show();
+                } else {
+                    prefs.edit().putString(isImage ? Media.K_IMG_NAME : Media.K_AUDIO_NAME, name).apply();
+                }
+                refreshMedia();
+            });
+        }).start();
     }
 
-    private PendingIntent alarmIntent(String name, String number) {
+    private void refreshMedia() {
+        imageLabel.setText(Media.imageFile(this).exists()
+                ? "Photo: " + prefs.getString(Media.K_IMG_NAME, "set") : "Photo: none");
+        audioLabel.setText(Media.audioFile(this).exists()
+                ? "Answer audio: " + prefs.getString(Media.K_AUDIO_NAME, "set") : "Answer audio: none");
+    }
+
+    // ------------------------------------------------------------------ alarms
+
+    private PendingIntent callIntent(String name, String number) {
         Intent i = new Intent(this, CallReceiver.class);
         if (number != null) {
             i.putExtra(EXTRA_NAME, name);
@@ -174,57 +170,128 @@ public class MainActivity extends Activity {
         return PendingIntent.getBroadcast(this, 1, i, PendingIntent.FLAG_UPDATE_CURRENT);
     }
 
-    private void onSchedule() {
+    private PendingIntent messageIntent(String sender, String text) {
+        Intent i = new Intent(this, MessageReceiver.class);
+        if (text != null) {
+            i.putExtra(EXTRA_NAME, sender);
+            i.putExtra(EXTRA_TEXT, text);
+        }
+        return PendingIntent.getBroadcast(this, 2, i, PendingIntent.FLAG_UPDATE_CURRENT);
+    }
+
+    private void setAlarm(long when, PendingIntent pi) {
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        if (Build.VERSION.SDK_INT >= 19) {
+            am.setExact(AlarmManager.RTC_WAKEUP, when, pi);
+        } else {
+            am.set(AlarmManager.RTC_WAKEUP, when, pi);
+        }
+    }
+
+    private void cancelAlarm(PendingIntent pi) {
+        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
+        am.cancel(pi);
+        pi.cancel();
+    }
+
+    // ------------------------------------------------------------------ fake call
+
+    private void onScheduleCall() {
         String name = nameEdit.getText().toString().trim();
         String number = numberEdit.getText().toString().trim();
         if (name.isEmpty() && number.isEmpty()) {
             nameEdit.setError("Enter a name or a number");
             return;
         }
-        long when = computeTriggerTime();
+        long when = callWhen.triggerTime();
         if (when < 0) return;
 
         prefs.edit().putString(K_NAME, name).putString(K_NUMBER, number).apply();
 
-        if (whenSpinner.getSelectedItemPosition() == 0) {
+        if (callWhen.isImmediate()) {
             CallReceiver.trigger(this, name, number);
             return;
         }
 
-        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        PendingIntent pi = alarmIntent(name, number);
-        if (Build.VERSION.SDK_INT >= 19) {
-            am.setExact(AlarmManager.RTC_WAKEUP, when, pi);
-        } else {
-            am.set(AlarmManager.RTC_WAKEUP, when, pi);
-        }
+        setAlarm(when, callIntent(name, number));
         prefs.edit().putLong(K_WHEN, when)
                 .putString(K_SCHED_NAME, name).putString(K_SCHED_NUMBER, number).apply();
         refreshStatus();
         Toast.makeText(this, "Fake call scheduled", Toast.LENGTH_SHORT).show();
     }
 
-    private void onCancel() {
-        AlarmManager am = (AlarmManager) getSystemService(Context.ALARM_SERVICE);
-        PendingIntent pi = alarmIntent(null, null);
-        am.cancel(pi);
-        pi.cancel();
+    private void onCancelCall() {
+        cancelAlarm(callIntent(null, null));
         prefs.edit().putLong(K_WHEN, 0).apply();
         refreshStatus();
     }
 
+    // ------------------------------------------------------------------ fake message
+
+    private void onScheduleMessage() {
+        String typedSender = msgSenderEdit.getText().toString().trim();
+        String text = msgTextEdit.getText().toString().trim();
+
+        String sender = typedSender;
+        if (sender.isEmpty()) sender = nameEdit.getText().toString().trim();
+        if (sender.isEmpty()) sender = numberEdit.getText().toString().trim();
+        if (sender.isEmpty()) {
+            msgSenderEdit.setError("Enter a sender name");
+            return;
+        }
+        if (text.isEmpty()) {
+            msgTextEdit.setError("Enter the message text");
+            return;
+        }
+        long when = msgWhen.triggerTime();
+        if (when < 0) return;
+
+        prefs.edit().putString(K_MSG_SENDER, typedSender).putString(K_MSG_TEXT, text).apply();
+
+        if (msgWhen.isImmediate()) {
+            Messages.show(this, sender, text);
+            return;
+        }
+
+        setAlarm(when, messageIntent(sender, text));
+        prefs.edit().putLong(K_MSG_WHEN, when)
+                .putString(K_MSG_SCHED_SENDER, sender).putString(K_MSG_SCHED_TEXT, text).apply();
+        refreshStatus();
+        Toast.makeText(this, "Fake message scheduled", Toast.LENGTH_SHORT).show();
+    }
+
+    private void onCancelMessage() {
+        cancelAlarm(messageIntent(null, null));
+        prefs.edit().putLong(K_MSG_WHEN, 0).apply();
+        refreshStatus();
+    }
+
+    // ------------------------------------------------------------------ status
+
+    private static String clock(long when) {
+        return new SimpleDateFormat("EEE HH:mm:ss", Locale.getDefault()).format(new Date(when));
+    }
+
     private void refreshStatus() {
-        long when = prefs.getLong(K_WHEN, 0);
-        if (when > System.currentTimeMillis()) {
+        long now = System.currentTimeMillis();
+
+        long callWhenMs = prefs.getLong(K_WHEN, 0);
+        if (callWhenMs > now) {
             String name = prefs.getString(K_SCHED_NAME, "");
             String number = prefs.getString(K_SCHED_NUMBER, "");
             String label = name.isEmpty() ? number
                     : (number.isEmpty() ? name : name + " (" + number + ")");
-            String time = new SimpleDateFormat("EEE HH:mm:ss", Locale.getDefault())
-                    .format(new Date(when));
-            statusText.setText("Scheduled: fake call from " + label + " at " + time);
+            statusText.setText("Scheduled: fake call from " + label + " at " + clock(callWhenMs));
         } else {
             statusText.setText("No call scheduled.");
+        }
+
+        long msgWhenMs = prefs.getLong(K_MSG_WHEN, 0);
+        if (msgWhenMs > now) {
+            msgStatusText.setText("Scheduled: message from "
+                    + prefs.getString(K_MSG_SCHED_SENDER, "") + " at " + clock(msgWhenMs));
+        } else {
+            msgStatusText.setText("No message scheduled.");
         }
     }
 }

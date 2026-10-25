@@ -1,0 +1,64 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical">
+
+    <TextView
+        android:id="@+id/whenTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:textAppearance="?android:attr/textAppearanceMedium" />
+
+    <Spinner
+        android:id="@+id/whenSpinner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:saveEnabled="false" />
+
+    <LinearLayout
+        android:id="@+id/customDelayRow"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone">
+
+        <EditText
+            android:id="@+id/hoursEdit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Hours"
+            android:inputType="number"
+            android:maxLength="3"
+            android:saveEnabled="false" />
+
+        <EditText
+            android:id="@+id/minutesEdit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Minutes"
+            android:inputType="number"
+            android:maxLength="4"
+            android:saveEnabled="false" />
+
+        <EditText
+            android:id="@+id/secondsEdit"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Seconds"
+            android:inputType="number"
+            android:maxLength="5"
+            android:saveEnabled="false" />
+    </LinearLayout>
+
+    <Button
+        android:id="@+id/pickTimeButton"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Pick a time"
+        android:visibility="gone" />
+</LinearLayout>

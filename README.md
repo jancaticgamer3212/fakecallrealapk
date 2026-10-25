@@ -10,6 +10,9 @@ Built for Android 5.x (minSdk 21). Tested on a Samsung Galaxy A3 (SM-A310F) runn
 - Choose when the call comes in: immediately, 10 s, 30 s, 1 min, 5 min, 15 min, 30 min, 1 hour, a **custom delay** (hours / minutes / seconds) or a **custom clock time**.
 - Wakes the phone and shows over the lock screen, with ringtone and vibration (respects silent / vibrate mode).
 - Cancel a scheduled call from the app.
+- **Caller photo**: pick a picture and it is shown on the call screen (and as the sender's picture on fake messages). It is shrunk and rotated correctly when picked.
+- **Answer audio**: pick an audio file and it plays through the earpiece when you accept the call, so the "caller" says something. A **Speaker** button on the call screen plays it out loud.
+- **Fake messages**: enter a sender (defaults to the caller name) and a text, then choose when it arrives with the same menu as calls (presets, custom delay, custom clock time). It appears as a normal heads-up notification with sound and vibration and wakes the screen. Tapping it opens a small chat screen where you can type replies; replies only stay on that screen, nothing is sent.
 - Two display modes:
   - **Simulated screen** (default, works as a normal install): the app draws its own incoming-call screen with Accept / Decline and an in-call timer.
   - **Real call screen** (experimental, needs root): the app registers with Android's Telecom service and reports an incoming call, so the phone's own call screen, ringtone and call log are used.
@@ -107,9 +110,20 @@ After the reboot, open the app, tick **Use the phone's real call screen**, and t
 
 To remove it: `rm -r /system/priv-app/FakeCall` from a root shell, then reboot. To update, copy the new APK over the old one and reboot.
 
+## Using the photo, audio and messages
+
+- **Photo / answer audio**: tap **Choose** next to them on the main screen and pick a file from any file manager or gallery app. The file is copied into the app, so you can delete the original. **Clear** removes it.
+- **Real call screen mode**: the phone's own call screen cannot show the app's photo, so the photo is ignored there. The answer audio still plays after you accept.
+- **Fake message**: fill in the text, pick a time, tap **Send / schedule fake message**. "Immediately" posts it right away.
+
+## Updating an existing system-app install
+
+Run `install_fakecall.sh` again with the new APK (see above). It replaces the old copy and reboots.
+
 ## Caveats
 
+- Fake messages are notifications, not entries in the SMS database, so they do not show up in the phone's Messages app.
+- Scheduled calls and messages are lost if the phone reboots before they fire.
 - The real call screen mode relies on hidden Telecom behaviour of Android 5.x. It is confirmed working on the device above; other ROMs and Android versions may differ.
 - Modifying `/system` is done at your own risk.
-- A scheduled call is lost if the phone reboots before it fires.
 - Targets API 22 on purpose, so it installs on Android 5. Recent Android versions refuse to install apps that old.

@@ -21,17 +21,28 @@ import android.widget.TextView;
 
 import java.util.Locale;
 
-/** Full-screen fake incoming call: rings, vibrates, then shows an in-call timer once answered. */
+/**
+ * Full-screen fake incoming call: rings and vibrates; once answered it shows an in-call timer
+ * and plays the chosen "answer" audio (if any) through the earpiece.
+ */
 public class IncomingCallActivity extends Activity {
 
     private static final long RING_TIMEOUT_MS = 45000;
 
     private final Handler handler = new Handler();
-    private MediaPlayer player;
+    private MediaPlayer player;        // ringtone
+    private MediaPlayer voicePlayer;   // answer audio
     private Vibrator vibrator;
-    private TextView statusView, timerView;
+    private TextView statusView, timerView, speakerButton;
     private View ringButtons, endButton;
     private long answeredAt;
+    private boolean hasAudio;
+    private boolean speakerOn;
+
+    // audio state to put back when the screen closes
+    private boolean audioChanged;
+    private int savedMode;
+    private boolean savedSpeaker;
 
     private final Runnable missedCall = new Runnable() {
         @Override
@@ -62,29 +73,43 @@ public class IncomingCallActivity extends Activity {
         String number = nonNull(getIntent().getStringExtra(MainActivity.EXTRA_NUMBER));
         String title = name.isEmpty() ? number : name;
         String subtitle = name.isEmpty() ? "" : number;
+        hasAudio = Media.audioFile(this).exists();
 
         LinearLayout root = new LinearLayout(this);
         root.setOrientation(LinearLayout.VERTICAL);
         root.setGravity(Gravity.CENTER_HORIZONTAL);
         root.setBackgroundColor(0xFF12161B);
-        root.setPadding(dp(24), dp(72), dp(24), dp(48));
+        root.setPadding(dp(24), dp(56), dp(24), dp(40));
 
         statusView = label("Incoming call", 16, 0xFFB0B7C0, false);
+        root.addView(statusView);
+
+        int avatarSize = dp(132);
+        LinearLayout.LayoutParams avatarLp = new LinearLayout.LayoutParams(avatarSize, avatarSize);
+        avatarLp.topMargin = dp(28);
+        root.addView(Media.avatarView(this, name, avatarSize), avatarLp);
+
         TextView nameView = label(title, 34, Color.WHITE, true);
-        nameView.setPadding(0, dp(16), 0, 0);
+        nameView.setPadding(0, dp(20), 0, 0);
         TextView numberView = label(subtitle, 18, 0xFFB0B7C0, false);
         numberView.setPadding(0, dp(8), 0, 0);
         timerView = label("00:00", 22, 0xFFB0B7C0, false);
         timerView.setPadding(0, dp(16), 0, 0);
         timerView.setVisibility(View.GONE);
 
-        root.addView(statusView);
         root.addView(nameView);
         root.addView(numberView);
         root.addView(timerView);
 
         root.addView(new View(this), new LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f));
+
+        speakerButton = pill("Speaker: off", 0xFF3A4350);
+        speakerButton.setVisibility(View.GONE);
+        LinearLayout.LayoutParams spLp = new LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT);
+        spLp.bottomMargin = dp(16);
+        root.addView(speakerButton, spLp);
 
         LinearLayout row = new LinearLayout(this);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -111,6 +136,7 @@ public class IncomingCallActivity extends Activity {
         decline.setOnClickListener(v -> finish());
         end.setOnClickListener(v -> finish());
         accept.setOnClickListener(v -> answer());
+        speakerButton.setOnClickListener(v -> toggleSpeaker());
 
         setContentView(root);
 
@@ -127,6 +153,38 @@ public class IncomingCallActivity extends Activity {
         timerView.setVisibility(View.VISIBLE);
         answeredAt = System.currentTimeMillis();
         handler.post(tick);
+
+        if (hasAudio) {
+            speakerButton.setVisibility(View.VISIBLE);
+            startVoice();
+        }
+    }
+
+    /** Plays the answer audio the way a call is heard: voice-call stream, earpiece. */
+    private void startVoice() {
+        try {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            savedMode = am.getMode();
+            savedSpeaker = am.isSpeakerphoneOn();
+            audioChanged = true;
+            am.setMode(AudioManager.MODE_IN_CALL);
+            am.setSpeakerphoneOn(false);
+
+            voicePlayer = new MediaPlayer();
+            voicePlayer.setDataSource(Media.audioFile(this).getPath());
+            voicePlayer.setAudioStreamType(AudioManager.STREAM_VOICE_CALL);
+            voicePlayer.prepare();
+            voicePlayer.start();
+        } catch (Exception e) {
+            releaseVoice();
+        }
+    }
+
+    private void toggleSpeaker() {
+        speakerOn = !speakerOn;
+        AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+        am.setSpeakerphoneOn(speakerOn);
+        speakerButton.setText(speakerOn ? "Speaker: on" : "Speaker: off");
     }
 
     private void startRinging() {
@@ -173,9 +231,26 @@ public class IncomingCallActivity extends Activity {
         }
     }
 
+    private void releaseVoice() {
+        if (voicePlayer != null) {
+            try {
+                voicePlayer.stop();
+            } catch (Exception ignored) {
+            }
+            voicePlayer.release();
+            voicePlayer = null;
+        }
+    }
+
     @Override
     protected void onDestroy() {
         stopRinging();
+        releaseVoice();
+        if (audioChanged) {
+            AudioManager am = (AudioManager) getSystemService(Context.AUDIO_SERVICE);
+            am.setSpeakerphoneOn(savedSpeaker);
+            am.setMode(savedMode);
+        }
         handler.removeCallbacksAndMessages(null);
         super.onDestroy();
     }
