@@ -35,7 +35,13 @@ The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Install
 
-### Normal install (simulated call screen)
+### Recommended: the Installer app
+
+The easiest way, with or without root, is the **Fake Call Installer** app in the [`installer/`](installer) folder (see [Installer app](#installer-app)). It has a FakeCall build bundled inside and installs or removes it with a button: no `adb` and no PC needed.
+
+> **Deprecated:** the `adb` methods below (the plain `adb install`, `install_fakecall.sh` and the manual steps) still work but are deprecated. Use the Installer app instead. They are kept for reference and for installing a build of your own.
+
+### Normal install with adb (deprecated; simulated call screen)
 
 ```bash
 adb install -r app-debug.apk
@@ -43,11 +49,11 @@ adb install -r app-debug.apk
 
 On Android 5 you may need to allow "Unknown sources". The "real call screen" checkbox will untick itself with an error in this mode, which is expected.
 
-### Install as a system app (real call screen, needs root)
+### Install as a system app with adb (deprecated; real call screen, needs root)
 
 Registering as a call provider needs `REGISTER_CALL_PROVIDER`, a permission only system apps can hold. With root you can install the APK as a privileged system app.
 
-#### Easy way: `install_fakecall.sh`
+#### `install_fakecall.sh` (deprecated)
 
 1. Download `FakeCall.apk` from the [Releases](../../releases) page **on the phone** (browser) so it lands in the phone's `Download` folder as `FakeCall.apk`. Or put it on your PC next to the script and push it in step 2.
 2. Push the script (and the APK, if you have it on the PC) to the phone and run it as root:
@@ -82,7 +88,7 @@ adb shell su -c "sh /data/local/tmp/install_fakecall.sh /sdcard/MyBuild.apk"
 
 If `su -c` does not work with your root manager, run `adb shell`, then `su`, then `sh /data/local/tmp/install_fakecall.sh`.
 
-#### Manual way
+#### Manual way (deprecated)
 
 The same thing by hand:
 
@@ -113,7 +119,7 @@ To remove it: `rm -r /system/priv-app/FakeCall` from a root shell, then reboot. 
 
 ## Installer app
 
-The [`installer/`](installer) folder is a small separate Android app, **Fake Call Installer**, that has a FakeCall build bundled inside and installs or removes it for you without `adb`: as a system app with root (real call screen) or as a normal app without root (simulated call screen only). See [`installer/README.md`](installer/README.md).
+**This is the recommended way to install FakeCall; the `adb` methods above are deprecated.** The [`installer/`](installer) folder is a small separate Android app, **Fake Call Installer**, that has a FakeCall build bundled inside and installs or removes it for you without `adb`: as a system app with root (real call screen) or as a normal app without root (simulated call screen only). See [`installer/README.md`](installer/README.md).
 
 ## Using the photo, audio and messages
 
@@ -123,7 +129,7 @@ The [`installer/`](installer) folder is a small separate Android app, **Fake Cal
 
 ## Updating an existing system-app install
 
-Run `install_fakecall.sh` again with the new APK (see above). It replaces the old copy and reboots.
+Put the new APK in `installer/app/src/main/assets/FakeCall.apk`, rebuild the Installer app and press **Install as system app** again. It replaces the old copy. (The deprecated way: run `install_fakecall.sh` again with the new APK.)
 
 ## Caveats
 
