@@ -1,0 +1,25 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.example.fakecallinstaller'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.example.fakecallinstaller"
+        minSdk 21          // Android 5.0
+        targetSdk 22       // so it installs on Android 5 like FakeCall itself
+        versionCode 1
+        versionName "1.0"
+    }
+
+    lint {
+        abortOnError false
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_1_8
+        targetCompatibility JavaVersion.VERSION_1_8
+    }
+}

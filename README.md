@@ -111,6 +111,10 @@ After the reboot, open the app, tick **Use the phone's real call screen**, and t
 
 To remove it: `rm -r /system/priv-app/FakeCall` from a root shell, then reboot. To update, copy the new APK over the old one and reboot.
 
+## Installer app
+
+The [`installer/`](installer) folder is a small separate Android app, **Fake Call Installer**, that has a FakeCall build bundled inside and installs or removes it for you without `adb`: as a system app with root (real call screen) or as a normal app without root (simulated call screen only). See [`installer/README.md`](installer/README.md).
+
 ## Using the photo, audio and messages
 
 - **Photo / answer audio**: tap **Choose** next to them on the main screen and pick a file from any file manager or gallery app. The file is copied into the app, so you can delete the original. **Clear** removes it. If the phone refuses the normal read (storage permission denied), the app falls back to copying the file as root with `su`, so your root manager may show a permission prompt for FakeCall: allow it. If something still fails, the exact error is shown in a message on screen.

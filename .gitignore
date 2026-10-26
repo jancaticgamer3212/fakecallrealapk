@@ -8,3 +8,6 @@ captures/
 .cxx/
 *.apk
 gradle/wrapper/gradle-wrapper.jar
+
+# the installer app bundles this APK
+!installer/app/src/main/assets/FakeCall.apk
