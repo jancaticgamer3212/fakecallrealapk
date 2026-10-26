@@ -39,6 +39,8 @@ The APK is written to `app/build/outputs/apk/debug/app-debug.apk`.
 
 The easiest way, with or without root, is the **Fake Call Installer** app in the [`installer/`](installer) folder (see [Installer app](#installer-app)). It has a FakeCall build bundled inside and installs or removes it with a button: no `adb` and no PC needed.
 
+**Download:** get `FakeCallInstaller.apk` from the [latest release](https://github.com/jancaticgamer3212/fakecallrealapk/releases/latest) ([direct link](https://github.com/jancaticgamer3212/fakecallrealapk/releases/latest/download/FakeCallInstaller.apk)), install it on the phone (Android may ask you to allow "Unknown sources") and press the buttons. The same release also has the plain `FakeCall.apk` if you only want the app itself.
+
 > **Deprecated:** the `adb` methods below (the plain `adb install`, `install_fakecall.sh` and the manual steps) still work but are deprecated. Use the Installer app instead. They are kept for reference and for installing a build of your own.
 
 ### Normal install with adb (deprecated; simulated call screen)

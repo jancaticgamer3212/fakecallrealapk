@@ -2,6 +2,8 @@
 
 A small Android app that installs (and removes) the bundled `FakeCall.apk` for you, so you don't need `adb`.
 
+**Download:** `FakeCallInstaller.apk` is on the [latest release](https://github.com/jancaticgamer3212/fakecallrealapk/releases/latest) ([direct link](https://github.com/jancaticgamer3212/fakecallrealapk/releases/latest/download/FakeCallInstaller.apk)). Install it on the phone like any APK (Android may ask you to allow "Unknown sources").
+
 | | With root | Without root |
 | --- | --- | --- |
 | Install | **Install as system app** (copies FakeCall to `/system/priv-app`, then asks to reboot) | **Install normally** (system package installer) |
